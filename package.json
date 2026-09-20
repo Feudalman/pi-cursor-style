@@ -27,7 +27,7 @@
 	"bugs": {
 		"url": "https://github.com/Feudalman/pi-cursor-style/issues"
 	},
-	"homepage": "https://github.com/Feudalman/pi-cursor-style#readme",
+	"homepage": "https://feudalman.github.io/pi-cursor-style/",
 	"files": [
 		"extensions",
 		"assets/demo.gif"
