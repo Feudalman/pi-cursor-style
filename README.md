@@ -43,6 +43,13 @@ Everything is one command: `/cursor-style`. Changes apply **immediately** — no
 /cursor-style
 ```
 
+**Control the terminal caret directly** (escapes all automatic management — useful if you answered "No" to the one-time question and changed your mind):
+
+```
+/cursor-style hardware off     force-disable pi's showHardwareCursor
+/cursor-style hardware on      force-enable it (and let the extension manage it again)
+```
+
 **Change the shape:**
 
 ```

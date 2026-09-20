@@ -43,6 +43,13 @@ pi install npm:pi-cursor-style        # npm 发布后可用
 /cursor-style
 ```
 
+**直接控制终端光标开关**（绕过所有自动管理——如果那次一次性询问你选了"否"又后悔了，用这个）：
+
+```
+/cursor-style hardware off     强制关闭 pi 的 showHardwareCursor
+/cursor-style hardware on      强制开启（并重新交由扩展自动管理）
+```
+
 **换形状：**
 
 ```

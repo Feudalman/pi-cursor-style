@@ -306,7 +306,9 @@ class CursorStyleEditor extends CustomEditor {
 const USAGE = `usage:
   /cursor-style                 show current config
   /cursor-style <style>         block | bar | underline | hardware
-  /cursor-style color <value>   "#rrggbb" | 0-255 | theme:<token> | none`;
+  /cursor-style color <value>   "#rrggbb" | 0-255 | theme:<token> | none
+  /cursor-style hardware on     force-enable pi's showHardwareCursor
+  /cursor-style hardware off    force-disable it (undo a "No" answer)`;
 
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
@@ -341,6 +343,21 @@ export default function (pi: ExtensionAPI) {
 					`cursor style: ${activeCfg.style} | color: ${activeCfg.color ?? "(none)"}\n${USAGE}`,
 					"info",
 				);
+				return;
+			}
+
+			if (parts[0] === "hardware" && (parts[1] === "on" || parts[1] === "off")) {
+				// Explicit override: escapes the ownership bookkeeping entirely
+				// (e.g. after answering "No" to the migration question).
+				const enable = parts[1] === "on";
+				if (writeSettingsShowHardwareCursor(enable)) {
+					activeCfg.hardwareCursorOwner = enable ? "extension" : undefined;
+					saveConfig(activeCfg);
+					tuiRef?.setShowHardwareCursor(enable);
+					ctx.ui.notify(`showHardwareCursor: ${enable ? "on" : "off"}`, "info");
+				} else {
+					ctx.ui.notify("Could not write ~/.pi/agent/settings.json", "warning");
+				}
 				return;
 			}
 

@@ -1,6 +1,6 @@
 {
 	"name": "pi-cursor-style",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"description": "Restyle the pi input editor's fake cursor: bar, underline, or a colorized block",
 	"keywords": [
 		"pi-package",
