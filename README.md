@@ -80,7 +80,7 @@ To use it:
 /cursor-style hardware
 ```
 
-The first time, the extension detects that pi's `showHardwareCursor` option is off and asks you to enable it (one confirm dialog — it writes `"showHardwareCursor": true` into `~/.pi/agent/settings.json` for you). Restart pi once, done.
+The first time, the extension detects that pi's `showHardwareCursor` option is off and asks you to enable it (one confirm dialog — it writes `"showHardwareCursor": true` into `~/.pi/agent/settings.json` for you). It takes effect immediately, no restart. Switching to any other style turns the option back off automatically, so the terminal caret never stacks on top of the software cursor. If you enabled `showHardwareCursor` yourself (for IME reasons, for example), the extension never touches it.
 
 Two things to know:
 

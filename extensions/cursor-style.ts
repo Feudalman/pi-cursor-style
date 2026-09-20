@@ -44,6 +44,13 @@ import { join } from "node:path";
 interface CursorStyleConfig {
 	style: "block" | "bar" | "underline" | "hardware";
 	color: string | undefined; // undefined = built-in default (blue); "none" = terminal default
+	/**
+	 * True when this extension turned showHardwareCursor on for the user.
+	 * Switching back to any non-hardware style then turns it off again,
+	 * so the terminal caret and the fake cursor never overlap. A user who
+	 * enabled showHardwareCursor themselves is never touched.
+	 */
+	hardwareCursorManaged: boolean;
 }
 
 /** Fallback color when the config omits "color". */
@@ -66,14 +73,21 @@ function loadConfig(): CursorStyleConfig {
 				? raw.style
 				: "block";
 		const color = typeof raw.color === "string" && raw.color.length > 0 ? raw.color : DEFAULT_COLOR;
-		return { style, color: color === "none" ? undefined : color };
+		return {
+			style,
+			color: color === "none" ? undefined : color,
+			hardwareCursorManaged: raw.hardwareCursorManaged === true,
+		};
 	} catch {
-		return { style: "block", color: DEFAULT_COLOR };
+		return { style: "block", color: DEFAULT_COLOR, hardwareCursorManaged: false };
 	}
 }
 
 function saveConfig(cfg: CursorStyleConfig): void {
-	writeFileSync(CONFIG_PATH, `${JSON.stringify({ style: cfg.style, color: cfg.color }, null, "\t")}\n`);
+	writeFileSync(
+		CONFIG_PATH,
+		`${JSON.stringify({ style: cfg.style, color: cfg.color, hardwareCursorManaged: cfg.hardwareCursorManaged || undefined }, null, "\t")}\n`,
+	);
 }
 
 /** Live config: mutated by /cursor-style, read on every render. */
@@ -91,14 +105,7 @@ function isHardwareCursorEnabled(): boolean {
 	}
 }
 
-async function enableHardwareCursorSetting(ctx: {
-	ui: { confirm: (t: string, m: string) => Promise<boolean>; notify: (m: string, t: "info" | "warning") => void };
-}): Promise<boolean> {
-	const ok = await ctx.ui.confirm(
-		"Enable hardware cursor?",
-		'"hardware" needs pi\'s showHardwareCursor. Write "showHardwareCursor": true to ~/.pi/agent/settings.json now?',
-	);
-	if (!ok) return false;
+function writeSettingsShowHardwareCursor(enabled: boolean): boolean {
 	try {
 		let settings: Record<string, unknown> = {};
 		try {
@@ -106,13 +113,52 @@ async function enableHardwareCursorSetting(ctx: {
 		} catch {
 			// missing or invalid settings file — start fresh
 		}
-		settings.showHardwareCursor = true;
+		settings.showHardwareCursor = enabled;
 		writeFileSync(SETTINGS_PATH, `${JSON.stringify(settings, null, "\t")}\n`);
-		ctx.ui.notify("showHardwareCursor enabled. Restart pi to see the terminal caret.", "info");
 		return true;
-	} catch (error) {
-		ctx.ui.notify(`Could not write settings.json: ${error}`, "warning");
+	} catch {
 		return false;
+	}
+}
+
+/** The live TUI, captured when the editor factory runs (null in print/RPC modes). */
+let tuiRef: { setShowHardwareCursor: (enabled: boolean) => void } | undefined;
+
+async function enableHardwareCursorSetting(ctx: {
+	ui: { confirm: (t: string, m: string) => Promise<boolean>; notify: (m: string, t: "info" | "warning") => void };
+}): Promise<boolean> {
+	const ok = await ctx.ui.confirm(
+		"Enable hardware cursor?",
+		'"hardware" needs pi\'s showHardwareCursor (the terminal caret). Turn it on now? It is turned back off automatically when you switch to another style.',
+	);
+	if (!ok) return false;
+	if (!writeSettingsShowHardwareCursor(true)) {
+		ctx.ui.notify("Could not write ~/.pi/agent/settings.json", "warning");
+		return false;
+	}
+	activeCfg.hardwareCursorManaged = true;
+	saveConfig(activeCfg);
+	tuiRef?.setShowHardwareCursor(true); // applies immediately, no restart
+	return true;
+}
+
+/**
+ * Undo enableHardwareCursorSetting when switching back to a software style.
+ * Only acts when the extension itself turned the setting on; a user-owned
+ * showHardwareCursor is never modified.
+ */
+function disableManagedHardwareCursor(ctx: {
+	ui: { notify: (m: string, t: "info" | "warning") => void };
+}): void {
+	// Re-read from disk as the single source of truth: the marker may have
+	// been edited or removed since this session started.
+	activeCfg.hardwareCursorManaged = loadConfig().hardwareCursorManaged;
+	if (!activeCfg.hardwareCursorManaged) return;
+	if (writeSettingsShowHardwareCursor(false)) {
+		activeCfg.hardwareCursorManaged = false;
+		saveConfig(activeCfg);
+		tuiRef?.setShowHardwareCursor(false); // applies immediately, no restart
+		ctx.ui.notify("showHardwareCursor turned back off (it was auto-enabled for hardware style).", "info");
 	}
 }
 
@@ -238,9 +284,15 @@ export default function (pi: ExtensionAPI) {
 		// Editor replacement exists in interactive mode only; in print/RPC
 		// modes ctx.ui has no setEditorComponent, so probe before calling.
 		if (typeof ctx.ui.setEditorComponent !== "function") return;
-		ctx.ui.setEditorComponent(
-			(tui, theme, keybindings) => new CursorStyleEditor(tui, theme, keybindings, ctx.ui.theme),
-		);
+		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
+			tuiRef = tui;
+			return new CursorStyleEditor(tui, theme, keybindings, ctx.ui.theme);
+		});
+		if (activeCfg.hardwareCursorManaged && !isHardwareCursorEnabled()) {
+			// The user turned the setting off themselves; drop the stale marker.
+			activeCfg.hardwareCursorManaged = false;
+			saveConfig(activeCfg);
+		}
 		if (activeCfg.style === "hardware" && !isHardwareCursorEnabled()) {
 			ctx.ui.notify(
 				'pi-cursor-style: "hardware" needs showHardwareCursor. Run /cursor-style hardware to set it up.',
@@ -284,8 +336,14 @@ export default function (pi: ExtensionAPI) {
 			saveConfig(activeCfg);
 			ctx.ui.notify(`cursor style: ${style} (applied immediately)`, "info");
 
-			if (style === "hardware" && !isHardwareCursorEnabled()) {
-				await enableHardwareCursorSetting(ctx);
+			if (style === "hardware") {
+				if (!isHardwareCursorEnabled()) {
+					await enableHardwareCursorSetting(ctx);
+				}
+			} else {
+				// Leaving hardware mode: turn the auto-enabled setting back
+				// off so the terminal caret does not stack on the fake cursor.
+				disableManagedHardwareCursor(ctx);
 			}
 		},
 	});

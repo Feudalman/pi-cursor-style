@@ -80,7 +80,7 @@ pi install npm:pi-cursor-style        # npm 发布后可用
 /cursor-style hardware
 ```
 
-首次使用时，扩展会检测到 pi 的 `showHardwareCursor` 选项未开启，并询问你是否帮你开启（一个确认框——自动把 `"showHardwareCursor": true` 写进 `~/.pi/agent/settings.json`）。重启一次 pi 即可。
+首次使用时，扩展会检测到 pi 的 `showHardwareCursor` 选项未开启，并询问你是否帮你开启（一个确认框——自动把 `"showHardwareCursor": true` 写进 `~/.pi/agent/settings.json`）。立即生效，无需重启。切换到其他样式时会自动把这个选项关回去，终端光标不会和软件光标叠加。如果你是自己开的 `showHardwareCursor`（例如为了输入法），扩展不会碰它。
 
 两点须知：
 
