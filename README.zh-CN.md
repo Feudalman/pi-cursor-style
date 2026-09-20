@@ -13,7 +13,7 @@ pi 自带的光标是一个黑白反显块，没有任何设置能改它。这�
 | `underline` | 字符带下划线 | 低调；字符完整可见 |
 | `hardware` | 终端原生光标（如 VS Code 式竖线） | 最原生的手感；字符永不动 |
 
-<p align="center"><img src="assets/demo.gif" width="100%" alt="演示：用 /cursor-style 切换各种光标样式"></p>
+![演示：用 /cursor-style 切换各种光标样式](assets/demo.gif)
 
 开箱即用——装好后默认就是蓝色光标，不需要先写任何配置。
 

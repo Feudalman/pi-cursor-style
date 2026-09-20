@@ -70,7 +70,9 @@
 	.install button:hover { background: var(--accent); color: #fff; }
 
 	/* Demo video */
-	.demo { margin: 40px 0 8px; }
+	.demo {
+		margin: 40px auto 8px; /* horizontal auto keeps the .wrap centering that a margin shorthand would kill */
+	}
 	.demo video {
 		width: 100%;
 		border-radius: 12px;
