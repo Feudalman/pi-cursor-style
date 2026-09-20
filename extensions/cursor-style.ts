@@ -8,10 +8,11 @@
  * alignment and the IME cursor marker are unaffected).
  *
  * Configuration: ~/.pi/agent/cursor-style.json
- *   { "style": "bar", "color": "#ff5f00" }
+ *   { "style": "bar" }
+ *   { "style": "underline", "color": "#ff5f00" }
  *
  *   style: "block" | "bar" | "underline"        (default "block")
- *   color: "#rrggbb" | 0-255 | "theme:<token>"  (optional)
+ *   color: "#rrggbb" | 0-255 | "theme:<token>"  (default "#00aaff"; "none" disables)
  *
  * "theme:<token>" resolves against the active theme (e.g. "theme:accent")
  * and follows theme switches live. Re-run /reload after editing the config.
@@ -34,8 +35,11 @@ import { join } from "node:path";
 
 interface CursorStyleConfig {
 	style: "block" | "bar" | "underline";
-	color?: string;
+	color: string | undefined; // undefined = built-in default (blue); "none" = terminal default
 }
+
+/** Fallback color when the config omits "color". */
+const DEFAULT_COLOR = "#00aaff";
 
 /** Matches the editor's fake cursor: reverse video around one grapheme. */
 const CURSOR_RE = /\x1b\[7m([^\x1b]*)\x1b\[0m/g;
@@ -47,9 +51,10 @@ function loadConfig(): CursorStyleConfig {
 		const raw = JSON.parse(readFileSync(CONFIG_PATH, "utf8")) as Partial<CursorStyleConfig>;
 		const style =
 			raw.style === "bar" || raw.style === "underline" || raw.style === "block" ? raw.style : "block";
-		return { style, color: typeof raw.color === "string" ? raw.color : undefined };
+		const color = typeof raw.color === "string" && raw.color.length > 0 ? raw.color : DEFAULT_COLOR;
+		return { style, color: color === "none" ? undefined : color };
 	} catch {
-		return { style: "block" };
+		return { style: "block", color: DEFAULT_COLOR };
 	}
 }
 

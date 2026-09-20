@@ -1,5 +1,7 @@
 # pi-cursor-style
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Restyle the [pi](https://github.com/earendil-works/pi) input editor's cursor: a **bar**, an **underline**, or a **colorized block** — instead of the default reverse-video block.
 
 ```
@@ -33,9 +35,11 @@ Create `~/.pi/agent/cursor-style.json`:
 ```jsonc
 {
 	"style": "bar",          // "block" | "bar" | "underline"   (default "block")
-	"color": "#ff5f00"       // optional: "#rrggbb" | 0-255 | "theme:<token>"
+	"color": "#00aaff"       // default "#00aaff"; see forms below; "none" disables color
 }
 ```
+
+Omit the file entirely for plain `block` + `#00aaff`.
 
 Color forms:
 
@@ -44,6 +48,9 @@ Color forms:
 | `"#ff5f00"` | any hex RGB |
 | `"208"` | xterm 256-color index |
 | `"theme:accent"` | an active-theme token; follows theme switches live |
+| `"none"` | no color; terminal default foreground |
+
+When `"color"` is omitted, the built-in default `"#00aaff"` (blue) applies.
 
 Style behavior:
 
@@ -51,7 +58,7 @@ Style behavior:
 - `bar` — a narrow `▏` glyph; wide (CJK) graphemes are padded so alignment is preserved; the character under the cursor is hidden while the cursor sits on it
 - `underline` — underlines the character and keeps it visible; blank cells (end of line) use `▁` because terminals trim underlines on blanks
 
-Re-run `/reload` (or restart pi) after editing the config. Invalid config falls back to `block` silently.
+Re-run `/reload` (or restart pi) after editing the config. Invalid style falls back to `block`; an unparsable color falls back to no color.
 
 ## Scope and limitations
 
