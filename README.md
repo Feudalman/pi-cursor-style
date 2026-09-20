@@ -8,6 +8,7 @@ Restyle the [pi](https://github.com/earendil-works/pi) input editor's cursor: a 
 default block   my text▮rest        reverse-video block (swapped fg/bg)
 bar             my text▏rest          narrow beam between characters, colorizable
 underline       my text̲r̲est           character stays visible
+hardware        my text│rest          terminal's own caret; no cell taken, characters never move
 ```
 
 pi draws its own "fake cursor" hardcoded as reverse video, so neither themes nor settings can change it. This extension wraps the default editor and rewrites the cursor cell on every frame — width-preserving, and the hidden IME cursor marker is left untouched, so input-method candidate windows still track correctly.
@@ -34,7 +35,7 @@ Create `~/.pi/agent/cursor-style.json`:
 
 ```jsonc
 {
-	"style": "bar",          // "block" | "bar" | "underline"   (default "block")
+	"style": "bar",          // "block" | "bar" | "underline" | "hardware"   (default "block")
 	"color": "#00aaff"       // default "#00aaff"; see forms below; "none" disables color
 }
 ```
@@ -57,6 +58,7 @@ Style behavior:
 - `block` — the default reverse-video block; with a `color` it becomes a block filled with that color
 - `bar` — a narrow `▏` beam inserted **between** characters, so the text at the cursor stays visible (like the default block, which wraps rather than hides the character). The inserted column is borrowed from the line's trailing padding; a completely full line falls back to the reverse-video block. At end of line the beam sits after the last character
 - `underline` — underlines the character and keeps it visible; blank cells (end of line) use `▁` because terminals trim underlines on blanks
+- `hardware` — the VS Code look: hides the fake cursor entirely and shows the terminal's own hardware caret at the caret cell. No cell is taken, so characters never move or get covered, and the caret is pixel-rendered by your terminal. Requires pi's `showHardwareCursor` (`"showHardwareCursor": true` in `~/.pi/agent/settings.json`, or `PI_HARDWARE_CURSOR=1`); the extension warns at startup if it is off. The shape (beam/block/underline) and color come from your terminal's cursor settings, e.g. VS Code's `terminal.integrated.cursorStyle: "line"`
 
 Re-run `/reload` (or restart pi) after editing the config. Invalid style falls back to `block`; an unparsable color falls back to no color.
 

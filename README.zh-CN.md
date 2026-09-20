@@ -34,7 +34,7 @@ pi install npm:pi-cursor-style
 
 ```jsonc
 {
-	"style": "bar",          // "block" | "bar" | "underline"   （默认 "block"）
+	"style": "bar",          // "block" | "bar" | "underline" | "hardware"   （默认 "block"）
 	"color": "#00aaff"       // 默认 "#00aaff"（蓝色）；见下表；"none" 关闭着色
 }
 ```
