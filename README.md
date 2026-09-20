@@ -6,6 +6,8 @@ Change how the [pi](https://github.com/earendil-works/pi) input box cursor looks
 
 pi draws its own cursor as a black-and-white block (a "reverse video" block) and offers no setting to change it. This extension fixes that:
 
+![cursor styles: block, bar, underline, hardware](assets/styles.png)
+
 | Style | Looks like | Best for |
 |-------|-----------|----------|
 | `block` (default) | ▮ a block over the current character, in any color | if you like the default shape but want a color |

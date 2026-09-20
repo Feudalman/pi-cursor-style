@@ -2,14 +2,22 @@
 	"name": "pi-cursor-style",
 	"version": "0.4.0",
 	"description": "Restyle the pi input editor's fake cursor: bar, underline, or a colorized block",
-	"keywords": ["pi-package", "pi-extension", "cursor", "caret"],
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"cursor",
+		"caret"
+	],
 	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/Feudalman/pi-cursor-style.git"
 	},
 	"pi": {
-		"extensions": ["./extensions"]
+		"extensions": [
+			"./extensions"
+		],
+		"image": "https://raw.githubusercontent.com/Feudalman/pi-cursor-style/main/assets/styles.png"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
