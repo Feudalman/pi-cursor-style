@@ -43,7 +43,7 @@ pi install npm:pi-cursor-style        # npm 发布后可用
 /cursor-style
 ```
 
-**直接控制终端光标开关**（绕过所有自动管理——如果那次一次性询问你选了"否"又后悔了，用这个）：
+**直接控制终端光标开关**（覆盖"样式即开关"的自动行为）：
 
 ```
 /cursor-style hardware off     强制关闭 pi 的 showHardwareCursor
@@ -87,7 +87,7 @@ pi install npm:pi-cursor-style        # npm 发布后可用
 /cursor-style hardware
 ```
 
-首次使用时，扩展会检测到 pi 的 `showHardwareCursor` 选项未开启，并询问你是否帮你开启（一个确认框——自动把 `"showHardwareCursor": true` 写进 `~/.pi/agent/settings.json`）。立即生效，无需重启。切换到其他样式时会自动把这个选项关回去，终端光标不会和软件光标叠加。如果你是自己开的 `showHardwareCursor`（例如为了输入法），扩展不会碰它。
+**样式即开关**——没有任何弹窗：切到 `hardware` 自动开启 pi 的 `showHardwareCursor`（写入 `~/.pi/agent/settings.json`，立即生效、无需重启）；切到其他样式自动关回去，终端光标不会和软件光标叠加。如果你因为其他原因（如输入法定位）需要常开 `showHardwareCursor`，用 `/cursor-style hardware on` 并保持当前样式即可。
 
 两点须知：
 

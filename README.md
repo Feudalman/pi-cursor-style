@@ -43,7 +43,7 @@ Everything is one command: `/cursor-style`. Changes apply **immediately** — no
 /cursor-style
 ```
 
-**Control the terminal caret directly** (escapes all automatic management — useful if you answered "No" to the one-time question and changed your mind):
+**Control the terminal caret directly** (overrides the style-is-the-switch behavior):
 
 ```
 /cursor-style hardware off     force-disable pi's showHardwareCursor
@@ -87,7 +87,7 @@ To use it:
 /cursor-style hardware
 ```
 
-The first time, the extension detects that pi's `showHardwareCursor` option is off and asks you to enable it (one confirm dialog — it writes `"showHardwareCursor": true` into `~/.pi/agent/settings.json` for you). It takes effect immediately, no restart. Switching to any other style turns the option back off automatically, so the terminal caret never stacks on top of the software cursor. If you enabled `showHardwareCursor` yourself (for IME reasons, for example), the extension never touches it.
+**The style is the switch** — no dialogs: switching to `hardware` turns pi's `showHardwareCursor` on (written to `~/.pi/agent/settings.json`, applied immediately, no restart); switching to any other style turns it back off, so the terminal caret never stacks on top of a software cursor. If you need `showHardwareCursor` on permanently for other reasons (e.g. IME positioning), use `/cursor-style hardware on` and leave the style alone.
 
 Two things to know:
 
