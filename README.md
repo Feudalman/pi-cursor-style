@@ -2,93 +2,119 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Restyle the [pi](https://github.com/earendil-works/pi) input editor's cursor: a **bar**, an **underline**, or a **colorized block** — instead of the default reverse-video block.
+Change how the [pi](https://github.com/earendil-works/pi) input box cursor looks — color, shape, or both.
 
-```
-default block   my text▮rest        reverse-video block (swapped fg/bg)
-bar             my text▏rest          narrow beam between characters, colorizable
-underline       my text̲r̲est           character stays visible
-hardware        my text│rest          terminal's own caret; no cell taken, characters never move
-```
+pi draws its own cursor as a black-and-white block (a "reverse video" block) and offers no setting to change it. This extension fixes that:
 
-pi draws its own "fake cursor" hardcoded as reverse video, so neither themes nor settings can change it. This extension wraps the default editor and rewrites the cursor cell on every frame — width-preserving, and the hidden IME cursor marker is left untouched, so input-method candidate windows still track correctly.
+| Style | Looks like | Best for |
+|-------|-----------|----------|
+| `block` (default) | ▮ a block over the current character, in any color | if you like the default shape but want a color |
+| `bar` | ▏ a thin beam **between** characters | a lightweight marker; text stays visible |
+| `underline` | character underlined | subtle; the character stays fully visible |
+| `hardware` | your terminal's own caret (e.g. a VS Code-style beam) | the most native feel; characters never move |
+
+Works out of the box with a blue cursor. No config file needed to start.
 
 ## Install
-
-With pi's package manager (recommended):
 
 ```bash
 pi install git:github.com/Feudalman/pi-cursor-style
 ```
 
-Or from npm once published:
+Restart pi afterwards. Your cursor is now a blue block.
+
+Alternative install methods:
 
 ```bash
-pi install npm:pi-cursor-style
+pi install npm:pi-cursor-style        # once published to npm
 ```
 
-Or manually: copy [`extensions/cursor-style.ts`](extensions/cursor-style.ts) to `~/.pi/agent/extensions/`.
+Or manually: copy [`extensions/cursor-style.ts`](extensions/cursor-style.ts) into `~/.pi/agent/extensions/`.
 
-## Quick start
+## Everyday use
 
-Once installed, configure with the built-in `/cursor-style` command — changes apply immediately, no restart:
+Everything is one command: `/cursor-style`. Changes apply **immediately** — no restart, no reload — and are saved automatically.
+
+**See what's active:**
 
 ```
-/cursor-style bar                  # switch style: block | bar | underline | hardware
-/cursor-style color #ff5f00        # any hex, 0-255 index, theme:<token>, or "none"
-/cursor-style                      # show current config
+/cursor-style
 ```
 
-`/cursor-style hardware` additionally offers to enable pi's `showHardwareCursor` in `~/.pi/agent/settings.json` for you (one confirm dialog, restart once).
+**Change the shape:**
 
-## Configure
+```
+/cursor-style bar
+/cursor-style underline
+/cursor-style block
+/cursor-style hardware
+```
 
-Create `~/.pi/agent/cursor-style.json`:
+**Change the color:**
+
+```
+/cursor-style color #ff5f00        any hex color
+/cursor-style color 208            an xterm 256-color index
+/cursor-style color theme:accent   follow your theme's accent color (tracks theme switches)
+/cursor-style color none           no color; use the terminal's default
+```
+
+Omitting the color entirely falls back to the built-in default `#00aaff` (blue).
+
+**Behavior notes per style:**
+
+- `block` — covers the character like the default, but filled with your color. The character stays readable (drawn in the inverted color).
+- `bar` — inserted **between** characters, so nothing is hidden and nothing shifts on other lines. On a completely full line (rare) it momentarily falls back to the default block to avoid breaking alignment.
+- `underline` — draws an underline under the character. At the end of a line it shows `▁` instead, because most terminals don't underline blank cells.
+- `hardware` — see the next section; this one works differently.
+
+## The `hardware` style (VS Code-like caret)
+
+All software-drawn cursors must occupy a character cell — that's a terminal limitation. The `hardware` style bypasses it: it **hides pi's drawn cursor completely** and lets your terminal's own caret (pixel-rendered, cell-free) take over. Characters never move or get covered.
+
+To use it:
+
+```
+/cursor-style hardware
+```
+
+The first time, the extension detects that pi's `showHardwareCursor` option is off and asks you to enable it (one confirm dialog — it writes `"showHardwareCursor": true` into `~/.pi/agent/settings.json` for you). Restart pi once, done.
+
+Two things to know:
+
+1. **Shape and color come from your terminal's cursor settings**, not from this extension. For the VS Code beam look, set your terminal's cursor to a vertical bar:
+   - VS Code / Cursor terminal: `"terminal.integrated.cursorStyle": "line"`
+   - iTerm2: Preferences → Profiles → Text → Cursor → Vertical bar
+   - Kitty: `cursor_shape line`
+   - Ghostty: `cursor-style = bar`
+2. `/cursor-style color ...` has **no effect** in this mode — terminals don't allow apps to recolor the hardware caret.
+
+## Configuring by file (optional)
+
+Prefer editing a file, or managing config via dotfiles? The command writes to `~/.pi/agent/cursor-style.json`, which you can also edit directly:
 
 ```jsonc
 {
-	"style": "bar",          // "block" | "bar" | "underline" | "hardware"   (default "block")
-	"color": "#00aaff"       // default "#00aaff"; see forms below; "none" disables color
+	"style": "bar",          // block | bar | underline | hardware
+	"color": "#00aaff"       // "#rrggbb" | 0-255 | "theme:<token>" | omit for default blue
 }
 ```
 
-Omit the file entirely for plain `block` + `#00aaff`.
+File edits take effect after `/reload` or a restart (the command path applies instantly).
 
-Color forms:
+## Limitations
 
-| Value | Meaning |
-|-------|---------|
-| `"#ff5f00"` | any hex RGB |
-| `"208"` | xterm 256-color index |
-| `"theme:accent"` | an active-theme token; follows theme switches live |
-| `"none"` | no color; terminal default foreground |
+- Restyles the **main input box only**. The small search inputs inside `/model`, `/resume`, etc. are built into pi's core and cannot be restyled by any extension.
+- The extension recognizes pi's cursor by its escape sequence (`\x1b[7m…\x1b[0m`). If a future pi release changes that format, this extension needs a matching update.
+- Everything else keeps working as usual: working spinner, thinking-level border colors, bash mode, autocomplete, history, and IME input (the invisible cursor marker used for input-method positioning is preserved on every path).
 
-When `"color"` is omitted, the built-in default `"#00aaff"` (blue) applies.
+## How it works (optional reading)
 
-Style behavior:
-
-- `block` — the default reverse-video block; with a `color` it becomes a block filled with that color
-- `bar` — a narrow `▏` beam inserted **between** characters, so the text at the cursor stays visible (like the default block, which wraps rather than hides the character). The inserted column is borrowed from the line's trailing padding; a completely full line falls back to the reverse-video block. At end of line the beam sits after the last character
-- `underline` — underlines the character and keeps it visible; blank cells (end of line) use `▁` because terminals trim underlines on blanks
-- `hardware` — the VS Code look: hides the fake cursor entirely and shows the terminal's own hardware caret at the caret cell. No cell is taken, so characters never move or get covered, and the caret is pixel-rendered by your terminal. Requires pi's `showHardwareCursor` (`"showHardwareCursor": true` in `~/.pi/agent/settings.json`, or `PI_HARDWARE_CURSOR=1`); the extension warns at startup if it is off. The shape (beam/block/underline) and color come from your terminal's cursor settings, e.g. VS Code's `terminal.integrated.cursorStyle: "line"`
-
-Re-run `/reload` (or restart pi) after editing the config. Invalid style falls back to `block`; an unparsable color falls back to no color.
-
-## Scope and limitations
-
-- Restyles the **main input editor only**. Single-line inputs (the search boxes in `/model`, `/resume`, etc.) are constructed inside pi's core and cannot be replaced by an extension.
-- The extension post-processes render output and matches the cursor sequence `\x1b[7m<grapheme>\x1b[0m`. If a future pi release changes that format, this extension needs a matching update.
-- Working status spinner, thinking-level border colors, bash mode, autocomplete, and history all keep working: the wrapper extends pi's own `CustomEditor` with `embedWorkingStatus: true`.
+pi renders the input box every frame with the cursor drawn as a reverse-video block. On `session_start` this extension swaps in a wrapper editor (via `ctx.ui.setEditorComponent`). The wrapper calls pi's original render, then rewrites just the cursor portion of each line according to your style — colorizing it, inserting a beam with width borrowing, underlining it, or stripping it entirely (hardware mode). Cell widths are preserved so alignment never breaks.
 
 ## Compatibility
 
-Verified against pi `0.86.0`. Uses only public extension APIs (`session_start`, `ctx.ui.setEditorComponent`), guarded so print/RPC modes are skipped.
-
-## How it works
-
-1. On `session_start`, replace the editor via `ctx.ui.setEditorComponent()`.
-2. The wrapper calls `super.render(width)` and rewrites each rendered line, swapping the reverse-video cursor cell for the configured style.
-3. Cell width is preserved (the inserted beam borrows a trailing pad column; underline keeps the glyph), so padding and borders stay aligned. The zero-width IME cursor marker emitted before the cursor is passed through untouched.
+Verified against pi `0.86.0`. Uses only public extension APIs. Skips itself in print/RPC modes.
 
 ## License
 
