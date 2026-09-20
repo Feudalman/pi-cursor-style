@@ -1,6 +1,6 @@
 {
 	"name": "pi-cursor-style",
-	"version": "0.6.0",
+	"version": "0.1.0",
 	"description": "Restyle the pi input editor's fake cursor: bar, underline, or a colorized block",
 	"keywords": [
 		"pi-package",
@@ -22,5 +22,14 @@
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
 		"@earendil-works/pi-tui": "*"
-	}
+	},
+	"author": "Zirui Cai",
+	"bugs": {
+		"url": "https://github.com/Feudalman/pi-cursor-style/issues"
+	},
+	"homepage": "https://github.com/Feudalman/pi-cursor-style#readme",
+	"files": [
+		"extensions",
+		"assets/demo.gif"
+	]
 }
