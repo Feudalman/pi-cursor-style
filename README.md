@@ -15,6 +15,8 @@ pi draws its own cursor as a black-and-white block (a "reverse video" block) and
 | `underline` | character underlined | subtle; the character stays fully visible |
 | `hardware` | your terminal's own caret (e.g. a VS Code-style beam) | the most native feel; characters never move |
 
+![demo: switching between cursor styles with /cursor-style](assets/demo.gif)
+
 Works out of the box with a blue cursor. No config file needed to start.
 
 ## Install
