@@ -29,6 +29,18 @@ pi install npm:pi-cursor-style
 
 Or manually: copy [`extensions/cursor-style.ts`](extensions/cursor-style.ts) to `~/.pi/agent/extensions/`.
 
+## Quick start
+
+Once installed, configure with the built-in `/cursor-style` command — changes apply immediately, no restart:
+
+```
+/cursor-style bar                  # switch style: block | bar | underline | hardware
+/cursor-style color #ff5f00        # any hex, 0-255 index, theme:<token>, or "none"
+/cursor-style                      # show current config
+```
+
+`/cursor-style hardware` additionally offers to enable pi's `showHardwareCursor` in `~/.pi/agent/settings.json` for you (one confirm dialog, restart once).
+
 ## Configure
 
 Create `~/.pi/agent/cursor-style.json`:

@@ -28,6 +28,18 @@ pi install npm:pi-cursor-style
 
 或手动安装：把 [`extensions/cursor-style.ts`](extensions/cursor-style.ts) 复制到 `~/.pi/agent/extensions/`。
 
+## 快速开始
+
+安装后用内置的 `/cursor-style` 命令配置——立即生效，无需重启：
+
+```
+/cursor-style bar                  # 切换样式：block | bar | underline | hardware
+/cursor-style color #ff5f00        # 任意 hex、0-255 索引、theme:<token> 或 "none"
+/cursor-style                      # 查看当前配置
+```
+
+`/cursor-style hardware` 还会主动帮你开启 pi 的 `showHardwareCursor`（写入 `~/.pi/agent/settings.json`，一个确认框，重启一次即可）。
+
 ## 配置
 
 创建 `~/.pi/agent/cursor-style.json`：

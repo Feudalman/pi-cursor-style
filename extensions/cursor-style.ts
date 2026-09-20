@@ -4,23 +4,27 @@
  * The editor's fake cursor is rendered as a reverse-video block
  * (`\x1b[7m<grapheme>\x1b[0m`), hardcoded in pi-tui. This extension wraps the
  * default editor and post-processes its render output, swapping that block
- * for a bar / underline / colorized block while preserving cell width (so
- * alignment and the IME cursor marker are unaffected).
+ * for a bar / underline / colorized block / hardware caret while preserving
+ * cell width (so alignment and the IME cursor marker are unaffected).
  *
- * Configuration: ~/.pi/agent/cursor-style.json
- *   { "style": "bar" }
- *   { "style": "underline", "color": "#ff5f00" }
+ * Configure with the /cursor-style command (applies immediately):
+ *
+ *   /cursor-style                     show current config and usage
+ *   /cursor-style bar                 block | bar | underline | hardware
+ *   /cursor-style color #ff5f00       hex | 0-255 | theme:<token> | none
+ *
+ * Or edit ~/.pi/agent/cursor-style.json directly (then /reload):
+ *
+ *   { "style": "bar", "color": "#00aaff" }
  *
  *   style: "block" | "bar" | "underline" | "hardware"  (default "block")
  *   color: "#rrggbb" | 0-255 | "theme:<token>"  (default "#00aaff"; "none" disables)
  *
- *   "hardware" hides the fake cursor entirely and relies on the terminal's
- *   hardware cursor (VS Code-style: no cell taken, characters never move).
- *   Requires pi's showHardwareCursor (settings.json or PI_HARDWARE_CURSOR=1);
- *   the caret shape is whatever the terminal is configured to render.
- *
- * "theme:<token>" resolves against the active theme (e.g. "theme:accent")
- * and follows theme switches live. Re-run /reload after editing the config.
+ *   "hardware" hides the fake cursor entirely and shows the terminal's own
+ *   caret instead (VS Code-style: no cell taken, characters never move).
+ *   Requires pi's showHardwareCursor; /cursor-style hardware offers to
+ *   enable it in settings.json. Caret shape follows the terminal's cursor
+ *   settings.
  *
  * Scope: the main input editor only. Single-line inputs (search boxes in
  * /model, /resume, etc.) are constructed inside the core and cannot be
@@ -33,7 +37,7 @@ import {
 	type KeybindingsManager,
 } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -49,6 +53,7 @@ const DEFAULT_COLOR = "#00aaff";
 const CURSOR_RE = /\x1b\[7m([^\x1b]*)\x1b\[0m/g;
 
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "cursor-style.json");
+const SETTINGS_PATH = join(homedir(), ".pi", "agent", "settings.json");
 
 function loadConfig(): CursorStyleConfig {
 	try {
@@ -67,6 +72,50 @@ function loadConfig(): CursorStyleConfig {
 	}
 }
 
+function saveConfig(cfg: CursorStyleConfig): void {
+	writeFileSync(CONFIG_PATH, `${JSON.stringify({ style: cfg.style, color: cfg.color }, null, "\t")}\n`);
+}
+
+/** Live config: mutated by /cursor-style, read on every render. */
+const activeCfg = loadConfig();
+
+function isHardwareCursorEnabled(): boolean {
+	if (process.env.PI_HARDWARE_CURSOR === "1") return true;
+	try {
+		const settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf8")) as {
+			showHardwareCursor?: boolean;
+		};
+		return settings.showHardwareCursor === true;
+	} catch {
+		return false;
+	}
+}
+
+async function enableHardwareCursorSetting(ctx: {
+	ui: { confirm: (t: string, m: string) => Promise<boolean>; notify: (m: string, t: "info" | "warning") => void };
+}): Promise<boolean> {
+	const ok = await ctx.ui.confirm(
+		"Enable hardware cursor?",
+		'"hardware" needs pi\'s showHardwareCursor. Write "showHardwareCursor": true to ~/.pi/agent/settings.json now?',
+	);
+	if (!ok) return false;
+	try {
+		let settings: Record<string, unknown> = {};
+		try {
+			settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf8")) as Record<string, unknown>;
+		} catch {
+			// missing or invalid settings file — start fresh
+		}
+		settings.showHardwareCursor = true;
+		writeFileSync(SETTINGS_PATH, `${JSON.stringify(settings, null, "\t")}\n`);
+		ctx.ui.notify("showHardwareCursor enabled. Restart pi to see the terminal caret.", "info");
+		return true;
+	} catch (error) {
+		ctx.ui.notify(`Could not write settings.json: ${error}`, "warning");
+		return false;
+	}
+}
+
 function hexToColorize(hex: string): ((text: string) => string) | undefined {
 	const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
 	if (!m) return undefined;
@@ -76,38 +125,39 @@ function hexToColorize(hex: string): ((text: string) => string) | undefined {
 }
 
 class CursorStyleEditor extends CustomEditor {
-	private readonly cfg: CursorStyleConfig;
 	private readonly themeRef: { fg: (color: string, text: string) => string } | undefined;
 
 	constructor(
 		tui: TUI,
 		theme: EditorTheme,
 		keybindings: KeybindingsManager,
-		cfg: CursorStyleConfig,
 		themeRef: { fg: (color: string, text: string) => string } | undefined,
 	) {
 		super(tui, theme, keybindings, { embedWorkingStatus: true });
-		this.cfg = cfg;
 		this.themeRef = themeRef;
 	}
 
 	render(width: number): string[] {
 		const lines = super.render(width);
-		if (this.cfg.style === "block" && !this.cfg.color) return lines;
-		// "hardware" also applies when no color is set.
-		return lines.map((line) => this.processLine(line));
+		const { style, color } = activeCfg;
+		if (style === "block" && !color) return lines;
+		return lines.map((line) => this.processLine(line, style, color));
 	}
 
-	private processLine(line: string): string {
-		if (this.cfg.style === "hardware") {
+	private processLine(
+		line: string,
+		style: CursorStyleConfig["style"],
+		color: string | undefined,
+	): string {
+		if (style === "hardware") {
 			// Hide the fake cursor entirely: restore the bare grapheme. The
 			// zero-width CURSOR_MARKER before it stays in place, so pi keeps
 			// positioning the terminal's hardware cursor at the caret cell.
 			// Characters never move or get covered — the VS Code look.
 			return line.replace(CURSOR_RE, (_match, ch: string) => ch);
 		}
-		if (this.cfg.style !== "bar") {
-			return line.replace(CURSOR_RE, (_match, ch: string) => this.restyle(ch));
+		if (style !== "bar") {
+			return line.replace(CURSOR_RE, (_match, ch: string) => this.restyle(ch, style, color));
 		}
 		// Bar: insert the beam BETWEEN characters so the character at the
 		// cursor stays visible (matching how the default block wraps a
@@ -119,25 +169,29 @@ class CursorStyleEditor extends CustomEditor {
 		const out = line.replace(CURSOR_RE, (_match, ch: string) => {
 			if (ch === " ") {
 				// End-of-line cursor: the beam takes the cursor cell itself.
-				return this.paintBar();
+				return this.paintBar(color);
 			}
 			if (canBorrow) {
 				borrowed = true;
-				return this.paintBar() + ch;
+				return this.paintBar(color) + ch;
 			}
 			return `\x1b[7m${ch}\x1b[0m`;
 		});
 		return borrowed ? out.replace(/ $/, "") : out;
 	}
 
-	private paintBar(): string {
-		const colorize = this.resolveColorize();
+	private paintBar(color: string | undefined): string {
+		const colorize = this.resolveColorize(color);
 		return colorize ? colorize("▏") : `\x1b[1m▏\x1b[22m`;
 	}
 
-	private restyle(ch: string): string {
-		const colorize = this.resolveColorize();
-		switch (this.cfg.style) {
+	private restyle(
+		ch: string,
+		style: CursorStyleConfig["style"],
+		color: string | undefined,
+	): string {
+		const colorize = this.resolveColorize(color);
+		switch (style) {
 			case "underline": {
 				// Keep the character visible; blank cells use a dedicated
 				// glyph because terminals trim underlines on blanks.
@@ -152,19 +206,18 @@ class CursorStyleEditor extends CustomEditor {
 		}
 	}
 
-	private resolveColorize(): ((text: string) => string) | undefined {
-		const color = this.cfg.color;
+	private resolveColorize(color: string | undefined): ((text: string) => string) | undefined {
 		if (!color) return undefined;
 		if (color.startsWith("theme:")) {
 			const token = color.slice("theme:".length);
 			if (!this.themeRef) return undefined;
 			return (text) => {
 				try {
-				return this.themeRef!.fg(token, text);
-			} catch {
-				return text;
-			}
-		};
+					return this.themeRef!.fg(token, text);
+				} catch {
+					return text;
+				}
+			};
 		}
 		if (/^\d+$/.test(color)) {
 			const idx = Number.parseInt(color, 10);
@@ -175,33 +228,65 @@ class CursorStyleEditor extends CustomEditor {
 	}
 }
 
+const USAGE = `usage:
+  /cursor-style                 show current config
+  /cursor-style <style>         block | bar | underline | hardware
+  /cursor-style color <value>   "#rrggbb" | 0-255 | theme:<token> | none`;
+
 export default function (pi: ExtensionAPI) {
-	const cfg = loadConfig();
-
-	function isHardwareCursorEnabled(): boolean {
-		if (process.env.PI_HARDWARE_CURSOR === "1") return true;
-		try {
-			const settings = JSON.parse(
-				readFileSync(join(homedir(), ".pi", "agent", "settings.json"), "utf8"),
-			) as { showHardwareCursor?: boolean };
-			return settings.showHardwareCursor === true;
-		} catch {
-			return false;
-		}
-	}
-
 	pi.on("session_start", async (_event, ctx) => {
 		// Editor replacement exists in interactive mode only; in print/RPC
 		// modes ctx.ui has no setEditorComponent, so probe before calling.
 		if (typeof ctx.ui.setEditorComponent !== "function") return;
 		ctx.ui.setEditorComponent(
-			(tui, theme, keybindings) => new CursorStyleEditor(tui, theme, keybindings, cfg, ctx.ui.theme),
+			(tui, theme, keybindings) => new CursorStyleEditor(tui, theme, keybindings, ctx.ui.theme),
 		);
-		if (cfg.style === "hardware" && !isHardwareCursorEnabled()) {
+		if (activeCfg.style === "hardware" && !isHardwareCursorEnabled()) {
 			ctx.ui.notify(
-				'pi-cursor-style: "hardware" needs showHardwareCursor. Set "showHardwareCursor": true in ~/.pi/agent/settings.json (or export PI_HARDWARE_CURSOR=1), then restart pi.',
+				'pi-cursor-style: "hardware" needs showHardwareCursor. Run /cursor-style hardware to set it up.',
 				"warning",
 			);
 		}
+	});
+
+	pi.registerCommand("cursor-style", {
+		description: "Set the editor cursor style (block/bar/underline/hardware) and color",
+		handler: async (args, ctx) => {
+			if (typeof ctx.ui.setEditorComponent !== "function") return;
+			const parts = args.trim().split(/\s+/).filter(Boolean);
+
+			if (parts.length === 0) {
+				ctx.ui.notify(
+					`cursor style: ${activeCfg.style} | color: ${activeCfg.color ?? "(none)"}\n${USAGE}`,
+					"info",
+				);
+				return;
+			}
+
+			if (parts[0] === "color") {
+				const value = parts[1];
+				if (!value || value === "none") {
+					activeCfg.color = undefined;
+				} else {
+					activeCfg.color = value;
+				}
+				saveConfig(activeCfg);
+				ctx.ui.notify(`cursor color: ${activeCfg.color ?? "(none)"}`, "info");
+				return;
+			}
+
+			const style = parts[0];
+			if (style !== "block" && style !== "bar" && style !== "underline" && style !== "hardware") {
+				ctx.ui.notify(`unknown style "${style}"\n${USAGE}`, "warning");
+				return;
+			}
+			activeCfg.style = style;
+			saveConfig(activeCfg);
+			ctx.ui.notify(`cursor style: ${style} (applied immediately)`, "info");
+
+			if (style === "hardware" && !isHardwareCursorEnabled()) {
+				await enableHardwareCursorSetting(ctx);
+			}
+		},
 	});
 }
