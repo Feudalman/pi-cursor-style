@@ -5,8 +5,8 @@
 Restyle the [pi](https://github.com/earendil-works/pi) input editor's cursor: a **bar**, an **underline**, or a **colorized block** — instead of the default reverse-video block.
 
 ```
-default block   my text▸▮◂rest        reverse-video block (swapped fg/bg)
-bar             my text▏rest          narrow bar, colorizable
+default block   my text▮rest        reverse-video block (swapped fg/bg)
+bar             my text▏rest          narrow beam between characters, colorizable
 underline       my text̲r̲est           character stays visible
 ```
 
@@ -55,7 +55,7 @@ When `"color"` is omitted, the built-in default `"#00aaff"` (blue) applies.
 Style behavior:
 
 - `block` — the default reverse-video block; with a `color` it becomes a block filled with that color
-- `bar` — a narrow `▏` glyph; wide (CJK) graphemes are padded so alignment is preserved; the character under the cursor is hidden while the cursor sits on it
+- `bar` — a narrow `▏` beam inserted **between** characters, so the text at the cursor stays visible (like the default block, which wraps rather than hides the character). The inserted column is borrowed from the line's trailing padding; a completely full line falls back to the reverse-video block. At end of line the beam sits after the last character
 - `underline` — underlines the character and keeps it visible; blank cells (end of line) use `▁` because terminals trim underlines on blanks
 
 Re-run `/reload` (or restart pi) after editing the config. Invalid style falls back to `block`; an unparsable color falls back to no color.
@@ -74,7 +74,7 @@ Verified against pi `0.86.0`. Uses only public extension APIs (`session_start`, 
 
 1. On `session_start`, replace the editor via `ctx.ui.setEditorComponent()`.
 2. The wrapper calls `super.render(width)` and rewrites each rendered line, swapping the reverse-video cursor cell for the configured style.
-3. Cell width is preserved (bar pads wide graphemes; underline keeps the glyph), so padding and borders stay aligned. The zero-width IME cursor marker emitted before the cursor is passed through untouched.
+3. Cell width is preserved (the inserted beam borrows a trailing pad column; underline keeps the glyph), so padding and borders stay aligned. The zero-width IME cursor marker emitted before the cursor is passed through untouched.
 
 ## License
 

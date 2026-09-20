@@ -28,7 +28,6 @@ import {
 	type KeybindingsManager,
 } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
-import { visibleWidth } from "@earendil-works/pi-tui";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -85,18 +84,42 @@ class CursorStyleEditor extends CustomEditor {
 	render(width: number): string[] {
 		const lines = super.render(width);
 		if (this.cfg.style === "block" && !this.cfg.color) return lines;
-		return lines.map((line) => line.replace(CURSOR_RE, (_match, ch: string) => this.restyle(ch)));
+		return lines.map((line) => this.processLine(line));
+	}
+
+	private processLine(line: string): string {
+		if (this.cfg.style !== "bar") {
+			return line.replace(CURSOR_RE, (_match, ch: string) => this.restyle(ch));
+		}
+		// Bar: insert the beam BETWEEN characters so the character at the
+		// cursor stays visible (matching how the default block wraps a
+		// character without hiding it). Insertion needs one extra column,
+		// borrowed from the line's trailing padding; a completely full
+		// line falls back to the reverse-video block to avoid overflow.
+		const canBorrow = line.endsWith(" ");
+		let borrowed = false;
+		const out = line.replace(CURSOR_RE, (_match, ch: string) => {
+			if (ch === " ") {
+				// End-of-line cursor: the beam takes the cursor cell itself.
+				return this.paintBar();
+			}
+			if (canBorrow) {
+				borrowed = true;
+				return this.paintBar() + ch;
+			}
+			return `\x1b[7m${ch}\x1b[0m`;
+		});
+		return borrowed ? out.replace(/ $/, "") : out;
+	}
+
+	private paintBar(): string {
+		const colorize = this.resolveColorize();
+		return colorize ? colorize("▏") : `\x1b[1m▏\x1b[22m`;
 	}
 
 	private restyle(ch: string): string {
 		const colorize = this.resolveColorize();
 		switch (this.cfg.style) {
-			case "bar": {
-				// Pad to the grapheme's width so line alignment is preserved
-				// (CJK cells are two columns wide).
-				const bar = "▏" + " ".repeat(Math.max(0, visibleWidth(ch) - 1));
-				return colorize ? colorize(bar) : `\x1b[1m${bar}\x1b[22m`;
-			}
 			case "underline": {
 				// Keep the character visible; blank cells use a dedicated
 				// glyph because terminals trim underlines on blanks.
