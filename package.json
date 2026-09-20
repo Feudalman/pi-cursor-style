@@ -17,7 +17,6 @@
 		"extensions": [
 			"./extensions"
 		],
-		"image": "https://raw.githubusercontent.com/Feudalman/pi-cursor-style/main/assets/styles.png",
 		"video": "https://raw.githubusercontent.com/Feudalman/pi-cursor-style/main/assets/demo.mp4"
 	},
 	"peerDependencies": {
